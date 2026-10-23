@@ -1,0 +1,22 @@
+run = "bash start.sh"
+entrypoint = "start.sh"
+
+[nix]
+channel = "stable-24_05"
+
+[[ports]]
+localPort = 6080
+externalPort = 80
+
+[[ports]]
+localPort = 6081
+externalPort = 3000
+
+[[ports]]
+localPort = 6463
+externalPort = 3001
+exposeLocalhost = true
+
+[deployment]
+run = ["bash", "start.sh"]
+deploymentTarget = "gce"
