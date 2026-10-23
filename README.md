@@ -5,7 +5,8 @@ Run the **official Discord PTB desktop client** directly in your browser using n
 This project is primarily designed for **Replit's Linux x86_64 environment**, but it may also be adapted for other Linux environments, including VPS instances and cloud VMs.
 
 * Run the Discord desktop client instead of Discord Web or the mobile app.
-* Access Chromium/Electron DevTools for console inspection, element inspection, and development experiments.
+* Optionally enable Chromium/Electron DevTools for console inspection, element inspection, and development experiments (off by default).
+* Take Ultra HD (4K) screenshots of the Discord window from your phone.
 * Connect remotely from a phone, tablet, or computer through a browser.
 * Use a virtual desktop without a physical monitor or dedicated GPU.
 
@@ -37,7 +38,7 @@ The provided setup uses Replit's Nix environment and does not require Docker or 
 | `start.sh`   | Downloads Discord, prepares the runtime, starts the virtual desktop, and launches the client |
 | `replit.nix` | Defines the required packages and runtime libraries for Replit                               |
 | `.replit`    | Configures the run command and Replit web ports                                              |
-| `control.py` | Provides a mobile-friendly control panel for DevTools and common actions                     |
+| `control.py` | Mobile-friendly control panel: screenshots, reload, and DevTools shortcuts (when enabled)     |
 
 ## Requirements
 
@@ -98,34 +99,52 @@ Enter your VNC password when prompted, then log in to Discord.
 4. Use the on-screen keyboard and extra-key controls to send keyboard shortcuts.
 5. Interact with the remote desktop using touch input.
 
-### DevTools and Control Panel
+### Control Panel
 
-The startup script attempts to enable DevTools and open them automatically after Discord launches.
+The separate control panel provides:
 
-The separate control panel provides shortcuts for:
+* Ultra HD screenshots and a screenshot gallery (see below)
+* Reloading the client, hard reloading, and sending Escape
+* Shortcuts for opening or closing DevTools and the DevTools Console (only shown when DevTools are enabled)
 
-* Opening or closing DevTools
-* Opening the DevTools Console
-* Reloading the client
-* Hard reloading the client
-* Sending Escape
-
-In the provided Replit configuration, the control panel listens on port `6081`, which may be exposed through Replit's web port mapping.
-
-To disable automatic DevTools opening, configure the environment variable:
+In the provided Replit configuration, the control panel listens on port `6081`, exposed as external port `3000`:
 
 ```text
-AUTO_DEVTOOLS=0
+https://<your-repl-url>:3000/?key=<VNC_PASSWORD>
 ```
+
+### Screenshots
+
+Open the control panel and use the **Screenshot** section:
+
+| Button | Result |
+| ------ | ------ |
+| Ultra HD 4K | 3840 px wide |
+| Full HD | 1920 px wide |
+| 8K | 7680 px wide (heavy; may exceed Replit's memory) |
+| Quick: full screen | The virtual screen as-is (native resolution, includes any DevTools window) |
+
+* 4K and 8K screenshots are **re-rendered by Discord** through the Chrome DevTools Protocol at a larger scale, so text and icons stay sharp instead of being a small image stretched up.
+* Only the Discord page is captured. If you enabled DevTools, close them first, because a docked DevTools panel shrinks the page area.
+* Screenshots are saved in the `screenshots/` folder of your Repl (downloadable from the Files panel) and are also available from the **Screenshot gallery** in the panel with View and Download buttons. Only the 40 most recent are kept.
+* The debug port (`9222`) is bound to localhost and is not exposed outside the Repl. Set `SCREENSHOT=0` to disable it together with the HD buttons.
+
+### DevTools (off by default)
+
+DevTools are **disabled by default**. To enable them, add the secret `DEVTOOLS=1`, then restart. This turns on the Discord DevTools shortcut (`Ctrl+Shift+I`) and shows the DevTools buttons in the control panel.
+
+To also open DevTools automatically after Discord launches, add `AUTO_DEVTOOLS=1` as well (requires `DEVTOOLS=1`).
 
 ## Configuration
 
-| Variable        | Default                       | Description                                               |
-| --------------- | ----------------------------- | --------------------------------------------------------- |
-| `VNC_PASSWORD`  | Empty                         | Password for VNC access; configure this in Replit Secrets |
-| `RESOLUTION`    | `960x540x24`                  | Virtual display resolution                                |
-| `AUTO_DEVTOOLS` | `1`                           | Set to `0` to disable automatic DevTools opening          |
-| `PTB_URL`       | Official Discord download URL | Overrides the installer download URL                      |
+| Variable        | Default                       | Description                                                          |
+| --------------- | ----------------------------- | -------------------------------------------------------------------- |
+| `VNC_PASSWORD`  | Empty                         | Password for VNC access and the control panel; set it in Replit Secrets |
+| `RESOLUTION`    | `960x540x24`                  | Virtual display resolution                                           |
+| `DEVTOOLS`      | `0`                           | Set to `1` to enable Discord DevTools                                |
+| `AUTO_DEVTOOLS` | `0`                           | Set to `1` to open DevTools automatically (requires `DEVTOOLS=1`)    |
+| `SCREENSHOT`    | `1`                           | Set to `0` to disable HD screenshots and the local debug port        |
+| `PTB_URL`       | Official Discord download URL | Overrides the installer download URL                                 |
 
 The included script also uses fixed internal ports for VNC and noVNC. Replit's external port mapping may differ from the ports used inside the environment.
 
@@ -139,7 +158,8 @@ The included script also uses fixed internal ports for VNC and noVNC. Replit's e
 | Discord crashes frequently           | Check memory availability and CPU usage                                                     |
 | Clean application installation       | Remove `.discord-novnc/app`; preserve `.discord-novnc/profile` to retain local session data |
 | Startup fails                        | Inspect the logs in `.discord-novnc/logs/`                                                  |
-| DevTools does not open               | Check the Discord window detection and `AUTO_DEVTOOLS` setting                              |
+| DevTools does not open               | DevTools are off by default: set `DEVTOOLS=1` (and `AUTO_DEVTOOLS=1` to auto-open), then restart |
+| HD screenshot fails                  | Wait until Discord has finished loading, close DevTools, and try 1920 px first. Use the "full screen" button as a fallback |
 
 ## Limitations
 
@@ -170,7 +190,9 @@ The included `replit.nix` and `.replit` files are Replit-specific. Other environ
 * Do not expose VNC or the control panel publicly without appropriate access controls.
 * Use HTTPS and authenticated access when exposing the web interface through a reverse proxy.
 * Never share session URLs, passwords, or unauthenticated control endpoints.
+* DevTools and the screenshot debug port give control over the Discord page, including your logged-in session. Keep `DEVTOOLS` off unless you need it, and never expose port `9222`.
 * DevTools access is intended for inspection, learning, and legitimate development experiments.
+* Never commit `.discord-novnc/` (it holds your Discord session); the included `.gitignore` excludes it.
 * Self-bots and unauthorized client modifications may violate [Discord's Terms of Service](https://discord.com/terms).
 
 ## Disclaimer

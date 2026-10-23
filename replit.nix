@@ -14,6 +14,7 @@
     # --- Utilities ---
     pkgs.wget
     pkgs.curl
+    pkgs.imagemagick   # fallback X11 screenshot
     pkgs.patchelf
     pkgs.glibc
     pkgs.file

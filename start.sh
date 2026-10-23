@@ -16,6 +16,13 @@ mkdir -p "$XDG_CONFIG_HOME" "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 DISC_DIR="$XDG_CONFIG_HOME/discordptb"   # Location where the bootstrap downloads Discord
 
+# Feature toggles (set in Replit Secrets)
+export DEVTOOLS="${DEVTOOLS:-0}"           # 1 = enable Discord DevTools (OFF by default)
+export SCREENSHOT="${SCREENSHOT:-1}"       # 1 = HD screenshots through the local debug port
+export CDP_PORT=9222                       # Chrome DevTools Protocol, localhost only (not exposed)
+export SHOT_DIR="$(dirname "$BASE")/screenshots"   # Screenshots (visible in the Replit Files panel)
+mkdir -p "$SHOT_DIR"
+
 RES="${RESOLUTION:-960x540x24}"
 VNC_PORT=5900
 WEB_PORT=6080
@@ -84,7 +91,7 @@ websockify --web "$NOVNC_DIR" 0.0.0.0:$WEB_PORT localhost:$VNC_PORT >"$LOG/webso
 echo "======================================================"
 echo " noVNC is ready on port $WEB_PORT -> open the Replit Webview tab"
 echo " Append /vnc.html?autoconnect=true&resize=scale"
-echo " Mobile control panel (DevTools, etc.): port 6081 (external port 3000)"
+echo " Mobile control panel (screenshots, reload, etc.): port 6081 (external port 3000)"
 echo "======================================================"
 
 # ---------- 4. glibc loader (Nix does not provide /lib64/ld-linux) ----------
@@ -103,18 +110,23 @@ patch_all() {  # Patch ELF executables in $BASE whose interpreter is missing
 }
 patch_all
 
-# ---------- 5. Enable Discord DevTools (Ctrl+Shift+I) ----------
+# ---------- 5. Discord DevTools (OFF by default; set DEVTOOLS=1 to enable) ----------
 mkdir -p "$DISC_DIR"
-python3 - "$DISC_DIR/settings.json" <<'PY'
+python3 - "$DISC_DIR/settings.json" "$DEVTOOLS" <<'PY'
 import json, sys, os
-p = sys.argv[1]
+p, enabled = sys.argv[1], sys.argv[2] == "1"
+KEY = "DANGEROUS_ENABLE_DEVTOOLS_ONLY_ENABLE_IF_YOU_KNOW_WHAT_YOURE_DOING"
 try:
     data = json.load(open(p)) if os.path.exists(p) else {}
 except Exception:
     data = {}
-data["DANGEROUS_ENABLE_DEVTOOLS_ONLY_ENABLE_IF_YOU_KNOW_WHAT_YOURE_DOING"] = True
+if enabled:
+    data[KEY] = True
+else:
+    data.pop(KEY, None)   # also clears the flag saved by older versions
 json.dump(data, open(p, "w"), indent=2)
 PY
+[ "$DEVTOOLS" = "1" ] && echo "[*] DevTools: enabled" || echo "[*] DevTools: disabled (set DEVTOOLS=1 to enable)"
 
 # ---------- 6. Mobile control panel (port 6081) ----------
 python3 "$(dirname "$(readlink -f "$0")")/control.py" >"$LOG/control.log" 2>&1 &
@@ -155,8 +167,8 @@ MISSING="$(ldd "$BIN" 2>/dev/null | grep 'not found')"
 # Continue patching for 15 minutes so newly downloaded Discord modules/binaries are also fixed
 ( for i in $(seq 1 300); do sleep 3; patch_all; done ) &
 
-# ---------- 8. Automatically open DevTools (set AUTO_DEVTOOLS=0 to disable) ----------
-if [ "${AUTO_DEVTOOLS:-1}" = "1" ]; then
+# ---------- 8. Automatically open DevTools (needs DEVTOOLS=1 and AUTO_DEVTOOLS=1; both OFF by default) ----------
+if [ "$DEVTOOLS" = "1" ] && [ "${AUTO_DEVTOOLS:-0}" = "1" ]; then
   (
     for i in $(seq 1 180); do
       WID="$(xdotool search --onlyvisible --name "Discord" 2>/dev/null | tail -1)"
@@ -186,13 +198,12 @@ W="${RES%%x*}"; H="$(echo "$RES" | cut -d x -f2)"
 ) &
 
 # ---------- 9. Run Discord PTB (automatically restart if it crashes) ----------
+ARGS=(--no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer)
+# Local debug port, only used by the screenshot feature (bound to localhost)
+[ "$SCREENSHOT" = "1" ] && ARGS+=(--remote-debugging-port="$CDP_PORT")
+
 while true; do
-  "$BIN" \
-    --no-sandbox \
-    --disable-gpu \
-    --disable-dev-shm-usage \
-    --disable-software-rasterizer \
-    >>"$LOG/discord.log" 2>&1
+  "$BIN" "${ARGS[@]}" >>"$LOG/discord.log" 2>&1
   RC=$?
   echo "[!] Discord exited (code $RC). Restarting in 3 seconds..."
   tail -n 5 "$LOG/discord.log"
