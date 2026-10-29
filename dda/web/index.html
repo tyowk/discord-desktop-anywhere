@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1e1f22">
+<title>Discord Desktop</title>
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body class="shell">
+<iframe id="desk" title="Remote desktop" allow="autoplay; fullscreen; clipboard-read; clipboard-write"></iframe>
+
+<div id="boot" class="boot" role="status" aria-live="polite">
+  <div class="spinner" aria-hidden="true"></div>
+  <p id="boot-msg">Starting...</p>
+</div>
+
+<button id="fab" class="fab" type="button" aria-label="Open control panel" aria-expanded="false" aria-controls="panel">
+  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+</button>
+
+<aside id="panel" class="panel" hidden aria-label="Control panel">
+  <header>
+    <h2>Control panel</h2>
+    <button id="close" class="icon" type="button" aria-label="Close">&times;</button>
+  </header>
+
+  <section>
+    <h3>Status</h3>
+    <p id="status" class="muted">Connecting...</p>
+  </section>
+
+  <section id="audio-sec">
+    <h3>Audio</h3>
+    <button id="audio-btn" class="btn primary" type="button">Enable audio</button>
+    <label class="row" for="vol">
+      <span>Volume</span>
+      <input id="vol" type="range" min="0" max="100" value="80">
+    </label>
+    <p id="audio-msg" class="muted"></p>
+  </section>
+
+  <section>
+    <h3>Controls</h3>
+    <div class="grid">
+      <button class="btn" type="button" data-action="reload">Reload</button>
+      <button class="btn" type="button" data-action="hardreload">Hard reload</button>
+      <button class="btn" type="button" data-action="esc">Escape</button>
+      <button class="btn dev" type="button" data-action="devtools" hidden>DevTools</button>
+      <button class="btn dev" type="button" data-action="console" hidden>Console</button>
+    </div>
+    <p id="action-msg" class="muted"></p>
+  </section>
+
+  <section id="shot-sec">
+    <h3>Screenshots</h3>
+    <div class="grid">
+      <button class="btn" type="button" data-shot="hd" data-width="3840">4K</button>
+      <button class="btn" type="button" data-shot="hd" data-width="1920">Full HD</button>
+      <button class="btn" type="button" data-shot="hd" data-width="7680">8K (heavy)</button>
+      <button class="btn" type="button" data-shot="x11" data-width="0">Native screen</button>
+    </div>
+    <p id="shot-msg" class="muted"></p>
+    <ul id="shot-list" class="shots"></ul>
+  </section>
+
+  <footer>
+    <a id="logout" class="btn" href="/logout">Sign out</a>
+    <span id="ver" class="muted"></span>
+  </footer>
+</aside>
+
+<script type="application/json" id="dda-config">{{CONFIG}}</script>
+<script src="/assets/app.js" defer></script>
+</body>
+</html>

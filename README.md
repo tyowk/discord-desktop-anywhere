@@ -1,202 +1,293 @@
-# Discord Desktop in Browser
+# Discord Desktop Anywhere
 
-Run the **official Discord PTB desktop client** directly in your browser using noVNC — powered by Replit, with no local PC or Docker required.
+Run the **official Discord desktop client** (PTB by default) in your browser, **with live audio**, on Replit or any
+Linux machine: a VPS, a home server, a cloud VM, a Raspberry-Pi-class box with an x86 CPU, or a plain Ubuntu/Debian
+install. No Docker and no root access required.
 
-This project is primarily designed for **Replit's Linux x86_64 environment**, but it may also be adapted for other Linux environments, including VPS instances and cloud VMs.
+> Independent community project. Not affiliated with Discord Inc. or Replit. See [Security and Terms](#security-and-discord-terms).
 
-* Run the Discord desktop client instead of Discord Web or the mobile app.
-* Optionally enable Chromium/Electron DevTools for console inspection, element inspection, and development experiments (off by default).
-* Take Ultra HD (4K) screenshots of the Discord window from your phone.
-* Connect remotely from a phone, tablet, or computer through a browser.
-* Use a virtual desktop without a physical monitor or dedicated GPU.
+## Features
 
-## How It Works
+- **Audio in the browser.** Discord plays into a virtual sound card; the web UI streams it live (MP3 or Opus).
+  Having a real audio device is also what lets **videos play inside Discord** (without one, Chromium stalls on video).
+- **One port, one login.** Desktop, audio, control panel and API are served by a single authenticated gateway.
+  Easy to put behind a reverse proxy or a Replit port mapping.
+- **Runs everywhere.** Replit (Nix) and Debian/Ubuntu, Fedora/RHEL and Arch (`install.sh`). Missing noVNC is downloaded
+  automatically. `doctor` tells you exactly what is missing.
+- **Secure by default.** Password login with signed session cookies, brute-force limiting, CSRF and cross-site
+  WebSocket protection, VNC bound to localhost, auto-generated password when you do not set one.
+- **Solid process management.** Ordered start-up with readiness checks, automatic restarts with back-off, clean shutdown
+  of every child process, cleanup of leftovers after a crash.
+- **Phone friendly.** Floating control panel with audio, reload, Escape, 4K/8K screenshots and a screenshot gallery.
+- **No Python dependencies.** The whole tool uses only the Python standard library.
 
-```text
-Browser (Phone / PC)
-        |
-      noVNC
-        |
-   WebSocket Proxy
-        |
-   Replit (Linux x86_64)
-        ├── Xvfb          Virtual display
-        ├── Openbox       Window manager
-        ├── x11vnc        VNC server
-        ├── websockify    WebSocket bridge
-        └── Discord PTB   Electron client
+## How it works
+
+The browser connects to one gateway. The gateway serves the UI and API, forwards the VNC connection, and streams audio separately.
+
+```mermaid
+flowchart TB
+    browser["Browser<br/>(phone or PC)"]
+    gateway["DDA web gateway (Python)<br/>Port 6080 · Login · UI · API"]
+    novnc["noVNC web client<br/>/novnc/*"]
+    websocket["WebSocket → VNC<br/>/websockify"]
+    audio["Live audio stream<br/>/audio · MP3 or Opus"]
+    api["Actions · screenshots · status<br/>/api/*"]
+    vnc["x11vnc"]
+    display["Xvfb virtual display"]
+    wm["openbox"]
+    discord["Discord desktop client<br/>(Electron)"]
+    pulse["Private PulseAudio<br/>virtual speaker"]
+    monitor["dda.monitor + ffmpeg"]
+
+    browser -->|"HTTPS · one port"| gateway
+    gateway --> novnc
+    gateway --> websocket
+    gateway --> audio
+    gateway --> api
+    websocket -->|"RFB · localhost"| vnc
+    vnc --> display
+    display --> wm
+    display --> discord
+    discord -->|"audio output"| pulse
+    pulse --> monitor
+    monitor --> audio
 ```
 
-The desktop session runs inside Replit's Linux environment. noVNC provides browser-based access to the remote desktop, allowing you to interact with Discord from another device.
+Everything is started and supervised by `python3 -m dda` (wrapped by `start.sh`).
 
-The provided setup uses Replit's Nix environment and does not require Docker or root access.
+## Quick start: Replit
 
-## Project Structure
+1. Create a Repl (Blank or Bash template) and add the files of this repository to its root.
+2. Open **Secrets** and add `VNC_PASSWORD` with a strong password. If you skip this, a password is generated and
+   printed in the console on every start.
+3. Press **Run**. The first start downloads Discord and can take several minutes; the page shows progress.
+4. Open the Replit **Webview** (or the app URL in a new tab) and sign in.
 
-| File         | Purpose                                                                                      |
-| ------------ | -------------------------------------------------------------------------------------------- |
-| `start.sh`   | Downloads Discord, prepares the runtime, starts the virtual desktop, and launches the client |
-| `replit.nix` | Defines the required packages and runtime libraries for Replit                               |
-| `.replit`    | Configures the run command and Replit web ports                                              |
-| `control.py` | Mobile-friendly control panel: screenshots, reload, and DevTools shortcuts (when enabled)     |
+`replit.nix` installs everything (Xvfb, x11vnc, openbox, PulseAudio, ffmpeg, Electron libraries). If packages seem
+to be missing after the first run, close and reopen the Shell and press Run again.
 
-## Requirements
+> The Replit Webview pane is an embedded frame. If the login does not stick there, use **Open in a new tab**.
 
-* A Replit account with a Linux x86_64 environment.
-* Sufficient memory and CPU resources to run Discord PTB.
-* A modern browser on the device used to connect.
-* A `VNC_PASSWORD` secret for protecting remote desktop access.
-* Network access to download Discord PTB and its dependencies.
+## Quick start: Ubuntu, Debian and other Linux
 
-The free Replit environment may have limited resources, which can cause slow performance or crashes.
+```bash
+git clone https://github.com/tyowk/discord-desktop-anywhere.git
+cd discord-desktop-anywhere
 
-## Installation
-
-### 1. Create a Repl
-
-Create a new Repl using a Bash or Blank template.
-
-### 2. Add the Project Files
-
-Place the following files in the root of your Repl:
-
-* `start.sh`
-* `replit.nix`
-* `.replit`
-* `control.py`
-
-Make sure `start.sh` is executable if your setup requires it.
-
-### 3. Configure Secrets
-
-Open **Secrets** in Replit and add:
-
-| Secret         | Value                            |
-| -------------- | -------------------------------- |
-| `VNC_PASSWORD` | A strong password of your choice |
-
-Do not share this password or expose your remote desktop without authentication.
-
-### 4. Start the Project
-
-Click **Run** and wait for the initial setup to finish. On the first launch, the script downloads the Discord installer and retrieves the full client, so startup may take several minutes.
-
-### 5. Open Discord
-
-Open the Replit **Webview** and navigate to:
-
-```text
-/vnc.html?autoconnect=true&resize=scale
+sudo ./install.sh          # system packages (apt / dnf / pacman); add --no-audio to skip audio
+bash start.sh              # run as a normal user
 ```
 
-Enter your VNC password when prompted, then log in to Discord.
+Then open the URL printed in the console (default `http://127.0.0.1:6080/`) and sign in with the printed password.
 
-## Using It on a Phone
+- **Remote server?** Either tunnel (`ssh -L 6080:127.0.0.1:6080 you@server`) or set `HOST=0.0.0.0` and put a TLS
+  reverse proxy in front ([examples](#reverse-proxy)). Never expose plain HTTP to the internet.
+- **Check your system:** `bash start.sh doctor`
+- **Run as a service:** see [`contrib/discord-desktop-anywhere.service`](contrib/discord-desktop-anywhere.service).
 
-1. Open the noVNC page in your mobile browser.
-2. Rotate your phone to landscape mode.
-3. Open the noVNC settings and select **Local Scaling**.
-4. Use the on-screen keyboard and extra-key controls to send keyboard shortcuts.
-5. Interact with the remote desktop using touch input.
+Supported and tested: **Ubuntu 24.04** (root and non-root). Debian and derivatives use the same code path.
+Fedora/RHEL and Arch are supported on a best-effort basis (`install.sh` has package lists for them but they are not
+covered by CI). Discord only ships **Linux x86_64** builds, so ARM machines are not supported.
 
-### Control Panel
+## Using it
 
-The separate control panel provides:
+### Audio
 
-* Ultra HD screenshots and a screenshot gallery (see below)
-* Reloading the client, hard reloading, and sending Escape
-* Shortcuts for opening or closing DevTools and the DevTools Console (only shown when DevTools are enabled)
+Open the floating menu (bottom-right) and tap **Enable audio**. Browsers require that tap before they allow sound.
 
-In the provided Replit configuration, the control panel listens on port `6081`, exposed as external port `3000`:
+- Latency is about 1 to 3 seconds because browsers buffer streams. That is fine for videos and music; it is not suited
+  for live conversation.
+- If the connection drops, audio reconnects automatically. The player skips ahead when its buffer grows too large.
+- `AUDIO_FORMAT=mp3` (default) plays everywhere, including iOS. `opus` uses less bandwidth at the same quality on
+  desktop browsers.
+- `MAX_LISTENERS` (default 3) limits simultaneous listeners; each one runs its own small `ffmpeg` process.
 
-```text
-https://<your-repl-url>:3000/?key=<VNC_PASSWORD>
-```
+**Microphone / voice chat is not included**: this is output audio only (hearing videos, streams, music and voice
+channels). Your Discord client sees a virtual speaker named *DDA_Virtual_Speaker*.
 
-### Screenshots
+### Control panel
 
-Open the control panel and use the **Screenshot** section:
+| Control | What it does |
+|:--|:--|
+| Enable audio / volume | Starts or stops the live stream in this browser |
+| Reload / Hard reload | Reloads the Discord page (through the DevTools Protocol, key press as fallback) |
+| Escape | Sends Esc to Discord |
+| DevTools / Console | Only shown when `DEVTOOLS=1` |
+| 4K, Full HD, 8K | Re-renders Discord at a larger scale for sharp screenshots (not a stretched image) |
+| Native screen | Grabs the virtual screen as-is |
 
-| Button | Result |
-| ------ | ------ |
-| Ultra HD 4K | 3840 px wide |
-| Full HD | 1920 px wide |
-| 8K | 7680 px wide (heavy; may exceed Replit's memory) |
-| Quick: full screen | The virtual screen as-is (native resolution, includes any DevTools window) |
+Screenshots are stored in `.discord-novnc/screenshots/` (Replit: `screenshots/` in the project) and listed in the
+panel. Only the newest `MAX_SCREENSHOTS` (40) are kept.
 
-* 4K and 8K screenshots are **re-rendered by Discord** through the Chrome DevTools Protocol at a larger scale, so text and icons stay sharp instead of being a small image stretched up.
-* Only the Discord page is captured. If you enabled DevTools, close them first, because a docked DevTools panel shrinks the page area.
-* Screenshots are saved in the `screenshots/` folder of your Repl (downloadable from the Files panel) and are also available from the **Screenshot gallery** in the panel with View and Download buttons. Only the 40 most recent are kept.
-* The debug port (`9222`) is bound to localhost and is not exposed outside the Repl. Set `SCREENSHOT=0` to disable it together with the HD buttons.
-
-### DevTools (off by default)
-
-DevTools are **disabled by default**. To enable them, add the secret `DEVTOOLS=1`, then restart. This turns on the Discord DevTools shortcut (`Ctrl+Shift+I`) and shows the DevTools buttons in the control panel.
-
-To also open DevTools automatically after Discord launches, add `AUTO_DEVTOOLS=1` as well (requires `DEVTOOLS=1`).
+On a phone: rotate to landscape and use noVNC's settings for local scaling; the on-screen keyboard and extra-key
+buttons are part of noVNC.
 
 ## Configuration
 
-| Variable        | Default                       | Description                                                          |
-| --------------- | ----------------------------- | -------------------------------------------------------------------- |
-| `VNC_PASSWORD`  | Empty                         | Password for VNC access and the control panel; set it in Replit Secrets |
-| `RESOLUTION`    | `960x540x24`                  | Virtual display resolution                                           |
-| `DEVTOOLS`      | `0`                           | Set to `1` to enable Discord DevTools                                |
-| `AUTO_DEVTOOLS` | `0`                           | Set to `1` to open DevTools automatically (requires `DEVTOOLS=1`)    |
-| `SCREENSHOT`    | `1`                           | Set to `0` to disable HD screenshots and the local debug port        |
-| `PTB_URL`       | Official Discord download URL | Overrides the installer download URL                                 |
+Set variables in **Replit Secrets**, in the shell environment, or in a `.env` file (see [`.env.example`](.env.example)).
+Real environment variables win over `.env`.
 
-The included script also uses fixed internal ports for VNC and noVNC. Replit's external port mapping may differ from the ports used inside the environment.
+### Login and network
 
-## Troubleshooting
+| Variable | Default | Description |
+|:--|:--|:--|
+| `VNC_PASSWORD` | Generated | Login password. `DDA_PASSWORD` is an alias. If empty, a password is generated and saved to `.discord-novnc/password`. |
+| `ALLOW_NO_AUTH` | `0` | Set to `1` to disable login. Use only on trusted private networks. |
+| `ALLOW_CROSS_SITE` | `0` | Set to `1` to disable Origin/CSRF checks. Only for embedded or non-browser clients that cannot send them. |
+| `HOST` | `127.0.0.1` (`0.0.0.0` on Replit) | Address the web gateway listens on. |
+| `PORT` | `6080` | Web gateway port. `DDA_PORT` takes precedence. |
+| `TRUST_PROXY` | `0` (`1` on Replit) | Trust `X-Forwarded-*` headers from the reverse proxy. |
+| `ALLOWED_ORIGINS` | Empty | Comma-separated extra origins allowed to open the WebSocket or call the API. |
 
-| Problem                              | Possible solution                                                                           |
-| ------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `exit 127` or executable not found   | Check executable paths, the glibc loader, and runtime dependencies                          |
-| Missing shared library (`libXXX.so`) | Check the required Nix packages and `LD_LIBRARY_PATH`                                       |
-| Display is cropped on mobile         | Enable Local Scaling in noVNC settings                                                      |
-| Discord crashes frequently           | Check memory availability and CPU usage                                                     |
-| Clean application installation       | Remove `.discord-novnc/app`; preserve `.discord-novnc/profile` to retain local session data |
-| Startup fails                        | Inspect the logs in `.discord-novnc/logs/`                                                  |
-| DevTools does not open               | DevTools are off by default: set `DEVTOOLS=1` (and `AUTO_DEVTOOLS=1` to auto-open), then restart |
-| HD screenshot fails                  | Wait until Discord has finished loading, close DevTools, and try 1920 px first. Use the "full screen" button as a fallback |
+### Discord and display
 
-## Limitations
+| Variable | Default | Description |
+|:--|:--|:--|
+| `DISCORD_CHANNEL` | `ptb` | `ptb`, `stable`, or `canary`. Stable and canary are untested. |
+| `DISCORD_ARGS` | Empty | Extra command-line flags for Discord. |
+| `RESOLUTION` | `960x540x24` | Virtual screen size: `WxH` or `WxHxDepth`. `1280x720` looks sharper if CPU resources allow. |
+| `DISPLAY_NUM` | `99` | First X display number to try; the next free number is used. |
+| `DEVTOOLS` | `0` | Set to `1` to enable Discord DevTools (`Ctrl+Shift+I`) and its panel buttons. |
+| `AUTO_DEVTOOLS` | `0` | Set to `1` to open DevTools at launch. Requires `DEVTOOLS=1`. |
+| `SCREENSHOT` | `1` | Set to `0` to disable HD screenshots, CDP reload, and the local debug port. |
+| `MAX_SCREENSHOTS` | `40` | Maximum number of screenshots kept in the gallery. |
+| `MAX_SHOT_WIDTH` | `7680` | Maximum screenshot width. |
+| `CDP_PORT` / `VNC_PORT` | `9222` / `5900` | Internal localhost ports. |
 
-* **Audio and voice chat:** Audio forwarding is not configured in the default setup.
-* **Software rendering:** GPU acceleration is disabled, which may reduce performance.
-* **Resource usage:** Discord is an Electron application and may consume significant memory and CPU resources.
-* **Session persistence:** Replit sessions may stop due to platform limits or inactivity.
-* **Updates:** Discord PTB updates and runtime compatibility may require maintenance.
-* **Platform compatibility:** The included configuration is designed for Replit and is not guaranteed to work unchanged elsewhere.
+### Audio
 
-## Using Other Linux Environments
+| Variable | Default | Description |
+|:--|:--|:--|
+| `AUDIO` | `1` | Set to `0` to disable audio entirely. |
+| `AUDIO_FORMAT` | `mp3` | Stream format: `mp3` or `opus`. |
+| `AUDIO_BITRATE` | `96` | Stream bitrate in kbit/s. |
+| `MAX_LISTENERS` | `3` | Maximum simultaneous listeners. Each listener runs its own small `ffmpeg` process. |
 
-Although Replit is the primary target, the project may be adapted for other Linux x86_64 environments, such as Ubuntu, Debian, VPS instances, or cloud VMs.
+### Installation and runtime
 
-Such environments may require changes to:
+| Variable | Default | Description |
+|:--|:--|:--|
+| `PTB_URL` | Official URL | Override the installer download URL. `INSTALLER_URL` is an alias. |
+| `LOCAL_TARBALL` | None | Use a local installer tarball instead of downloading one. |
+| `NOVNC_DIR` | Auto | Directory containing `vnc.html`; downloaded automatically if not found. |
+| `DDA_DATA_DIR` | `.discord-novnc` | Directory for Discord, its profile, logs, and runtime files. |
+| `LOG_LEVEL` | `INFO` | Python log level. |
 
-* Package installation and dependency configuration
-* noVNC asset locations
-* glibc loader paths and executable patching
-* Display and service startup commands
-* Network ports, reverse proxies, and authentication
+Commands: `bash start.sh [run|doctor|password|version]`.
 
-The included `replit.nix` and `.replit` files are Replit-specific. Other environments must provide equivalent dependencies and configuration.
+## Reverse proxy
+
+Set `HOST=127.0.0.1` (default off Replit) and `TRUST_PROXY=1`, then proxy to port 6080. WebSockets and **unbuffered
+streaming** (for `/audio`) must work.
+
+**Caddy**
+
+```caddyfile
+discord.example.com {
+    reverse_proxy 127.0.0.1:6080 {
+        flush_interval -1
+    }
+}
+```
+
+**nginx**
+
+```nginx
+map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+
+server {
+    listen 443 ssl http2;
+    server_name discord.example.com;
+    # ssl_certificate / ssl_certificate_key ...
+
+    location / {
+        proxy_pass http://127.0.0.1:6080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;        # required for live audio
+        proxy_read_timeout 3600s;
+    }
+}
+```
+
+Serve the app from the root of a domain or subdomain; sub-paths are not supported.
 
 ## Security and Discord Terms
 
-* Always configure a strong `VNC_PASSWORD`.
-* Do not expose VNC or the control panel publicly without appropriate access controls.
-* Use HTTPS and authenticated access when exposing the web interface through a reverse proxy.
-* Never share session URLs, passwords, or unauthenticated control endpoints.
-* DevTools and the screenshot debug port give control over the Discord page, including your logged-in session. Keep `DEVTOOLS` off unless you need it, and never expose port `9222`.
-* DevTools access is intended for inspection, learning, and legitimate development experiments.
-* Never commit `.discord-novnc/` (it holds your Discord session); the included `.gitignore` excludes it.
-* Self-bots and unauthorized client modifications may violate [Discord's Terms of Service](https://discord.com/terms).
+- Anyone who can open the gateway and knows the password controls your logged-in Discord account. Use a strong
+  password, HTTPS, and do not share session URLs.
+- x11vnc and the DevTools debug port only listen on `127.0.0.1` and are reached through the authenticated gateway.
+  On a **shared multi-user machine**, other local users could still connect to those localhost ports; run this on a
+  single-user machine, container or VM.
+- Keep `DEVTOOLS` off unless you need it: DevTools and the screenshot debug port can control the Discord page.
+- Never commit `.discord-novnc/` (it holds your Discord session and the generated password); `.gitignore` excludes it.
+- Self-bots and unauthorized client modifications may violate [Discord's Terms of Service](https://discord.com/terms).
+  Using the official client this way is your responsibility.
 
-## Disclaimer
+## Troubleshooting
 
-This is an independent community project and is not affiliated with, endorsed by, or sponsored by Discord Inc. or Replit.
+| Problem | What to try |
+|:--|:--|
+| Startup says requirements are missing | `bash start.sh doctor`, then `sudo ./install.sh` (Replit: reopen the Shell and press Run) |
+| "Another instance is already running" | Stop the other `start.sh` first; each data directory allows one instance |
+| No sound | Tap **Enable audio**; check the panel message; `bash start.sh doctor`; see `.discord-novnc/logs/pulseaudio.log` |
+| Audio says unavailable: *ffmpeg lacks PulseAudio input* | Install a full `ffmpeg` build, or install `pulseaudio-utils` so `parec` is used as fallback |
+| Audio stutters or lags behind | Lower `AUDIO_BITRATE`, use a wired/fast connection, or reload the audio (tap twice). Proxies must not buffer `/audio` |
+| Video does not play in Discord | Check that the panel shows audio as available; Discord needs the virtual speaker. Try `DISCORD_ARGS="--disable-gpu-compositing"` if frames stay black |
+| Login loops in Replit Webview | Open the app in a new tab (embedded frames can block cookies) |
+| Page stays on "Starting..." | First start downloads Discord; watch `.discord-novnc/logs/dda.log` and `bootstrap.err` |
+| Missing shared library (`libXXX.so`) | `sudo ./install.sh`; on Replit check `replit.nix` and `LD_LIBRARY_PATH` |
+| Discord crashes repeatedly | Not enough memory/CPU: lower `RESOLUTION`; check `.discord-novnc/logs/discord.log` |
+| Display cropped on mobile | Enable local scaling in noVNC settings |
+| HD screenshot fails | Wait until Discord has loaded, close DevTools, try 1920 px, or use *Native screen* |
+| Clean reinstall of Discord | Delete `.discord-novnc/app`; keep `.discord-novnc/profile` to stay logged in |
 
-Discord is a trademark of Discord Inc. All product names are used for identification purposes only.
+Logs live in `.discord-novnc/logs/` (`dda.log`, `discord.log`, `xvfb.log`, `x11vnc.log`, `pulseaudio.log`, ...).
+
+## Project layout
+
+| Path | Purpose |
+|:--|:--|
+| `start.sh` | Entry point; finds Python and runs `python3 -m dda` |
+| `install.sh` | Installs system packages on apt / dnf / pacman systems |
+| `dda/cli.py` | Orchestration: start-up order, signals, shutdown |
+| `dda/config.py` | All settings, validation and `.env` loading |
+| `dda/server.py` | Web gateway: UI, static files, VNC WebSocket proxy, audio stream, API |
+| `dda/audio.py` | Private PulseAudio server, virtual speaker, ffmpeg streaming |
+| `dda/desktop.py` | Xvfb, session bus, openbox, x11vnc |
+| `dda/app.py` | Downloading, installing and launching Discord (including Nix loader patching) |
+| `dda/procs.py` | Process supervision with restart back-off |
+| `dda/auth.py`, `dda/wsproto.py`, `dda/cdp.py`, `dda/shots.py` | Login, WebSocket protocol, DevTools Protocol, screenshots |
+| `dda/web/` | Login page, control panel UI |
+| `replit.nix`, `.replit` | Replit environment and port mapping |
+| `scripts/smoke-test.sh` | End-to-end test of the whole stack without Discord |
+| `tests/` | Unit tests |
+| `contrib/` | systemd user service |
+
+## Development
+
+```bash
+pip install pytest ruff
+python3 -m pytest                  # unit tests
+ruff check . && ruff format --check .
+sudo ./install.sh && bash scripts/smoke-test.sh   # end-to-end test (Xvfb, PulseAudio, x11vnc, gateway)
+```
+
+CI runs linting, the unit tests on Python 3.8 to 3.12, and the smoke test.
+
+## Limitations
+
+- **Output audio only**; no microphone input.
+- **Software rendering:** no GPU, so Discord is heavier than on a desktop and 1080p video may drop frames.
+- **Linux x86_64 only** (Discord does not ship ARM Linux builds).
+- Replit sessions can stop because of platform limits or inactivity; the free tier is resource constrained.
+- Discord updates can change the installer or runtime requirements and may need maintenance.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Discord is a trademark of Discord Inc.; names are used for identification only.

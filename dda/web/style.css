@@ -1,0 +1,63 @@
+:root {
+  --bg: #1e1f22; --panel: #2b2d31; --raised: #383a40; --text: #f2f3f5; --muted: #949ba4;
+  --brand: #5865f2; --brand-hover: #4752c4; --danger: #f23f43; --ok: #23a55a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.muted { color: var(--muted); }
+[hidden] { display: none !important; }
+
+/* shell */
+#desk { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: var(--bg); }
+.boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; background: var(--bg); z-index: 5; text-align: center; padding: 24px; }
+.boot.error p { color: var(--danger); }
+.spinner { width: 38px; height: 38px; border: 4px solid var(--raised); border-top-color: var(--brand); border-radius: 50%;
+  animation: spin 0.9s linear infinite; }
+.boot.error .spinner { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.fab { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); z-index: 10;
+  width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--brand); color: #fff; opacity: .55;
+  display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+.fab:hover, .fab:focus-visible, .fab[aria-expanded="true"] { opacity: 1; }
+.fab.playing::after { content: ""; position: absolute; top: 5px; right: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
+
+.panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 100vw); z-index: 20; overflow-y: auto;
+  background: var(--panel); box-shadow: -6px 0 24px rgba(0,0,0,.45); padding: 0 16px 16px;
+  padding-top: env(safe-area-inset-top); padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+.panel header { display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--panel); padding: 12px 0 4px; }
+.panel h2 { margin: 0; font-size: 18px; }
+.panel h3 { margin: 18px 0 8px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.panel section p { margin: 8px 0 0; word-break: break-word; }
+.panel footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; }
+.icon { background: none; border: 0; color: var(--text); font-size: 28px; line-height: 1; cursor: pointer; padding: 4px 8px; }
+
+/* controls */
+.btn { display: block; width: 100%; padding: 12px 14px; border: 0; border-radius: 8px; background: var(--raised); color: var(--text);
+  font: inherit; text-align: center; text-decoration: none; cursor: pointer; }
+.btn:hover { filter: brightness(1.12); }
+.btn:disabled { opacity: .5; cursor: progress; }
+.btn.primary { background: var(--brand); }
+.btn.primary:hover { background: var(--brand-hover); filter: none; }
+.btn.on { background: var(--ok); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.row { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.row input[type=range] { flex: 1; accent-color: var(--brand); }
+.panel footer .btn { width: auto; padding: 8px 14px; }
+.shots { list-style: none; margin: 10px 0 0; padding: 0; }
+.shots li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--raised); font-size: 13px; }
+.shots .name { flex: 1; min-width: 0; word-break: break-all; }
+.shots a, .shots button { color: #8ab4ff; background: none; border: 0; font: inherit; cursor: pointer; padding: 2px; text-decoration: none; }
+.shots button { color: var(--danger); }
+
+/* login */
+.login { display: grid; place-items: center; padding: 20px; }
+.card { width: min(380px, 100%); background: var(--panel); border-radius: 12px; padding: 28px; box-shadow: 0 8px 32px rgba(0,0,0,.4); }
+.card h1 { margin: 0 0 6px; font-size: 22px; }
+.card input[type=password] { width: 100%; padding: 12px; margin: 14px 0 12px; border-radius: 8px; border: 1px solid var(--raised);
+  background: var(--bg); color: var(--text); font: inherit; }
+.card input:focus { outline: 2px solid var(--brand); }
+.error { color: var(--danger); min-height: 1.4em; margin: 12px 0 0; }

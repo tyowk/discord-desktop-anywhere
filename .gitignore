@@ -1,13 +1,16 @@
-# Local runtime data: contains your Discord login session. NEVER commit it.
+# Runtime data: contains your Discord login session and the generated password. NEVER commit it.
 .discord-novnc/
-
-# Screenshots and manual installer tarball
 screenshots/
 discord-ptb.tar.gz
+.env
 
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
 
 # Replit internals
 .cache/

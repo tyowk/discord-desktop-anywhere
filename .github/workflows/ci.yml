@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check .
+      - run: ruff format --check .
+      - name: shellcheck
+        run: shellcheck -x start.sh install.sh scripts/smoke-test.sh
+      - name: JavaScript syntax
+        run: node --check dda/web/app.js
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install pytest
+      - run: python -m pytest
+
+  smoke:
+    # Runs the real Xvfb + PulseAudio + x11vnc + web gateway stack with a fake app (no Discord download).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo ./install.sh
+      - name: End-to-end smoke test
+        run: bash scripts/smoke-test.sh

@@ -1,0 +1,22 @@
+# systemd *user* service. Install with:
+#   mkdir -p ~/.config/systemd/user && cp contrib/discord-desktop-anywhere.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now discord-desktop-anywhere
+#   loginctl enable-linger "$USER"      # keep it running after you log out
+# Adjust WorkingDirectory to where you cloned the repository.
+[Unit]
+Description=Discord Desktop Anywhere
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/discord-desktop-anywhere
+EnvironmentFile=-%h/discord-desktop-anywhere/.env
+ExecStart=/usr/bin/env bash start.sh run
+Restart=on-failure
+RestartSec=5
+KillMode=control-group
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target
